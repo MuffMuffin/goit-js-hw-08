@@ -28,6 +28,7 @@ console.log(`Local cookie time: ${document.cookie}`);
 
 const timeLog = ({ seconds }) => {
   playerPosition = seconds;
+  np;
   document.cookie = `${playerPosition}`;
   // console.log(playerPosition);
   console.log(document.cookie);
