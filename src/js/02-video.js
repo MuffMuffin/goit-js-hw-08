@@ -1,66 +1,94 @@
 import Player from '@vimeo/player';
 import _ from 'lodash';
+import { save, load, remove } from './storage';
 
-const iframe = document.querySelector('iframe');
-const player = new Player(iframe);
+const LOCAL_STORAGE_KEY = 'videoplayer-current-time';
+const video = document.querySelector('#vimeo-player');
+const player = new Player(video);
 
-let playerPosition = 0;
+video.style.cssText = `position: absolute;
+  top: 10%;
+  left: 50%;
+  transform: translate(-50%, 0%);
+  box-shadow: rgb(38, 57, 77) 0px 20px 30px -10px;`;
 
-player
-  .setCurrentTime(30.456)
-  .then(function (seconds) {
-    console.log(seconds);
-    // seconds = the actual time that the player seeked to
-  })
-  .catch(function (error) {
-    switch (error.name) {
-      case 'RangeError':
-        // the time was less than 0 or greater than the video’s duration
-        break;
+// ----------- MIRROR EFFECT BEGIN -----------
+// Нажаль - фігня. Я не зміг синхронізувати вспливаюче меню на плеєрах.
+//
+// Спроба 1 - Модифікувати вміст плеєра: насильно ховати елементи "рефлекції"
+//            манипулюючи CSS через скрипт. Неможливо, оскільки жава не бачить
+//            iframe через захист від кросс-сайтових аттак (чи як там)
+//
+// Спроба 2 - Скріншот на канвас: записувати вміст плеєра та проектувати
+//            його "рефлекцію". Але браузер не дає скріншотити без підтверження
+//            юзера. HTML2Canvas - та ж сама проблема що і в 1 пункті.
+//
+// Спроба 3 - Делегування евентів: поставити ширму перед плеєром щоб мишка не дьоргала
+//            головний плеєр і пропускати/делегувати лише кліки(маусдауни). Взагалі я
+//            закинув цю тему, бо мені здалось що джаву не пусте у вміст iframe.
+//
+// Якщо б був Vimeo Plus то контролі можна б було скрити. Якщо б був Vimeo Pro, то
+// можна було б за "рефлекцію" взяти сурс відео в MP4 чи що.
+//
+// Взагалі такий еффект можливо зробити з контентом в iframe з іншого сайту?
 
-      default:
-        // some other error occurred
-        break;
-    }
+video.insertAdjacentHTML(
+  'afterend',
+  `<iframe
+      id="vimeo-reflection"
+      src="https://player.vimeo.com/video/236203659?autopause=false"
+      width="640"
+      height="360"
+      frameborder="0"
+      allowfullscreen
+      allow="autoplay; encrypted-media"
+    ></iframe>`
+);
+
+const reflect = document.querySelector('#vimeo-reflection');
+const reflection = new Player(reflect);
+
+reflect.style.cssText = `position: absolute;
+  pointer-events: none;
+  top: calc(10% + 360px);
+  left: 50%;
+  opacity: 0.5;
+  transform: translate(-50%, 0%) perspective(400px) rotatex(220deg)
+    translatey(-50px) translateZ(-110px);
+  -webkit-mask-image: linear-gradient(transparent 50%, #fafafa 90%);
+  mask-image: linear-gradient(transparent 50%, #fafafa 90%);`;
+
+reflection.setMuted(true);
+
+player.setAutopause(false);
+
+video.focus();
+
+player.on('play', () => {
+  player.getCurrentTime().then(time => {
+    reflection.setCurrentTime(time);
   });
+  reflection.play();
+});
 
-console.log(`Local cookie time: ${document.cookie}`);
+player.on('pause', () => {
+  reflection.pause();
+});
+
+// ------------ MIRROR EFFECT END ------------
+
+onInit();
+
+function onInit() {
+  const videoTime = load(LOCAL_STORAGE_KEY);
+  if (videoTime) {
+    player.setCurrentTime(videoTime);
+    reflection.setCurrentTime(videoTime);
+  }
+}
 
 const timeLog = ({ seconds }) => {
-  playerPosition = seconds;
-  np;
-  document.cookie = `${playerPosition}`;
-  // console.log(playerPosition);
-  console.log(document.cookie);
+  save(LOCAL_STORAGE_KEY, seconds);
 };
 
 player.on('timeupdate', _.throttle(timeLog, 1000));
-
-// _.throttle(() => {
-//   console.log(localStorage);
-// }, 10000);
-
-// ---
-
-player.on('play', function () {
-  console.log('played the video!');
-});
-
-player.getVideoTitle().then(function (title) {
-  console.log('title:', title);
-});
-
-player.getDuration().then(duration => {
-  console.log(duration);
-});
-
-// player.on('timeupdate', ({ seconds }) => {
-//   _.throttle(console.dir(seconds), 10000);
-// });
-
-// document.addEventListener(
-//   'keydown',
-//   _.throttle(event => {
-//     console.log(event.key);
-//   }, 1000)
-// );
